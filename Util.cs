@@ -1,5 +1,8 @@
 ﻿using System;
-using System.Diagnostics;
+using System.ComponentModel;
+using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -7,35 +10,106 @@ namespace FangameUtil
 {
     public partial class Util : Form
     {
-        HookManager _hooks = new HookManager();
-        Keyboard _keyboard = new Keyboard();
+        readonly HookManager _hooks = new HookManager();
+        readonly HotKey _autofireKey;
+        readonly HotKey _fullscreenKey;
+        readonly Keyboard _keyboard = new Keyboard();
         readonly System.Threading.Timer _timer;
+        readonly KeyMessageFilter _filter = new KeyMessageFilter();
+        readonly SaveBackup _saveBackup = new SaveBackup();
+
         int _counter = 0;
 
-        volatile string _foregroundClassName = null;
+        volatile IntPtr _foregroundWindow = IntPtr.Zero;
+        volatile bool _foregroundIsFangame = false;
         volatile AutoFire _autoFire = null;
         volatile bool _numPadHold = false;
         volatile bool _active = false;
 
+        Windows.RECT _fullscreenSavedWindowedRect;
+        IntPtr _fullscreenSavedWindowedStyle;
+
+        public class KeyMessageFilter : IMessageFilter
+        {
+            public delegate void KeyPressedDelegate();
+            public KeyPressedDelegate OnAutoFireChange;
+            public KeyPressedDelegate OnFullScreen;
+
+            const int WM_KEYDOWN = 0x0100;
+            const int WM_HOTKEY = 0x0312;
+
+            volatile Keys _autoFireChangeKey = Keys.None;
+            volatile Keys _fullscreenKey = Keys.None;
+
+            public Keys AutoFireChangeKey { set => _autoFireChangeKey = value; }
+            public Keys FullScreenKey { set => _fullscreenKey = value; }
+
+            public bool PreFilterMessage(ref Message m)
+            {
+                if (m.Msg == WM_KEYDOWN)
+                {
+                    if (_autoFireChangeKey != Keys.None && (Keys) m.WParam == _autoFireChangeKey)
+                    {
+                        OnAutoFireChange();
+                    }
+                }
+
+                if (m.Msg == WM_HOTKEY)
+                {
+                    Keys key = (Keys)(((int)m.LParam >> 16) & 0xFFFF);
+                    ModifierKeys modifier = (ModifierKeys)((int)m.LParam & 0xFFFF);
+                    if (_autoFireChangeKey != Keys.None && key == _autoFireChangeKey)
+                    {
+                        OnAutoFireChange();
+                    }
+                    if (_fullscreenKey != Keys.None && key == _fullscreenKey)
+                    {
+                        OnFullScreen();
+                    }
+                }
+
+                return false;
+            }
+        }
+
         public Util()
         {
             InitializeComponent();
+            _autofireKey = new HotKey(Handle, 2);
+            _fullscreenKey = new HotKey(Handle, 1);
             _hooks.SubscribeToWindowEvents();
             _hooks.ForegroundChanged = ResetProcess;
             _timer = new System.Threading.Timer(Update, null, 1, 50);
             Activated += Form_Activated;
             Deactivate += Form_Deactivated;
+            _filter.OnAutoFireChange = () => { checkBoxAutoFire.Checked = !checkBoxAutoFire.Checked; };
+            _filter.OnFullScreen = SwitchFullScreen;
+            _filter.FullScreenKey = Keys.F11;
+            Application.AddMessageFilter(_filter);
+            comboBoxAutoFireSwitch.SelectedIndex = 0;
         }
 
-        ~Util()
+        protected override void Dispose(bool disposing)
         {
-            _timer.Change(Timeout.Infinite, Timeout.Infinite);
-            WaitHandle handle = new AutoResetEvent(false);
-            _timer.Dispose(handle);
-            handle.WaitOne();
-            _timer.Dispose();
+            if (disposing)
+            {
+                if (components != null)
+                {
+                    components.Dispose();
+                }
 
-            _hooks.UnsubscribeFromWindowEvents();
+
+                _timer.Change(Timeout.Infinite, Timeout.Infinite);
+                WaitHandle handle = new AutoResetEvent(false);
+                _timer.Dispose(handle);
+                handle.WaitOne();
+                _timer.Dispose();
+                _hooks.UnsubscribeFromWindowEvents();
+                _autofireKey.Dispose();
+                _fullscreenKey.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
 
         // Call from other thread for safe UI invoke
@@ -71,22 +145,25 @@ namespace FangameUtil
                     return;
 
                 int count = _counter++;
-                string className = _foregroundClassName;
-
-                if (!(className is object))
+                IntPtr foregroundWindow = _foregroundWindow;
+                if (foregroundWindow == IntPtr.Zero)
                 {
-                    className = Windows.GetForegroundClassName();
-                    _foregroundClassName = className;
-                    SafeInvoke(() => 
+                    foregroundWindow = Windows.GetForegroundWindow();
+                    if (foregroundWindow == IntPtr.Zero)
+                        return;
+
+                    var className = Windows.GetForegroundClassName(foregroundWindow);
+                    if (!(className is object))
                     {
-                        textBoxName.Text = className;
-                    });
+                        return;
+                    }
+
+                    SafeInvoke(() => { textBoxName.Text = className; });
+                    _foregroundWindow = foregroundWindow;
+                    _foregroundIsFangame = className == "TRunnerForm" || className == "YYGameMakerYY";
                 }
 
-                if (!(className is object))
-                    return;
-
-                if (className != "TRunnerForm")
+                if (!_foregroundIsFangame)
                     return;
 
                 var numPadHold = _numPadHold;
@@ -122,13 +199,13 @@ namespace FangameUtil
 
         private void ResetProcess()
         {
-            _foregroundClassName = null;
+            _foregroundWindow = IntPtr.Zero;
         }
 
         private void OnAutoFireChange(object sender, EventArgs e)
         {
             AutoFire autoFire = null;
-            if (checkBoxAutoFire.Enabled)
+            if (checkBoxAutoFire.Checked)
             {
                 if (int.TryParse(textBoxAutoFireHold.Text   , out int hold)    && 0 != hold 
                  && int.TryParse(textBoxAutoFireRelease.Text, out int release) && 0 != release)
@@ -148,11 +225,97 @@ namespace FangameUtil
         private void Form_Activated(object sender, System.EventArgs e)
         {
             _active = true;
+            _fullscreenKey.RegisterHotKey(0, Keys.F11);
         }
 
         private void Form_Deactivated(object sender, System.EventArgs e)
         {
             _active = false;
+        }
+
+        private void comboBoxAutoFireSwitch_SelectionChangeCommitted(object sender, EventArgs e)
+        {
+            Keys key = 0 == comboBoxAutoFireSwitch.SelectedIndex ? Keys.None : (comboBoxAutoFireSwitch.SelectedIndex + Keys.A - 1);
+            _filter.AutoFireChangeKey = key;
+
+            if (0 == comboBoxAutoFireSwitch.SelectedIndex)
+            {
+                _autofireKey.UnregisterHotKey();
+            }
+            else
+            {
+                _autofireKey.UnregisterHotKey();
+                _autofireKey.RegisterHotKey(0, key);
+            }
+        }
+
+        private void buttonSaveBackupOpen_Click(object sender, EventArgs e)
+        {
+            var fp = new FolderPicker();
+            if (fp.ShowDialog(Handle) == true)
+            {
+                textBoxSaveBackupDir.Text = fp.ResultPath;
+            }
+        }
+
+        private void textBoxSaveBackupDir_TextChanged(object sender, EventArgs e)
+        {
+            if (Directory.Exists(textBoxSaveBackupDir.Text))
+            {
+                _saveBackup.Dir = textBoxSaveBackupDir.Text;
+            }
+        }
+
+        private void textBoxSaveBackupMaxFileSize_TextChanged(object sender, EventArgs e)
+        {
+            if (int.TryParse(textBoxSaveBackupMaxFileSize.Text, out int maxFileSize))
+            {
+                _saveBackup.MaxFileSize = maxFileSize;
+            }
+        }
+
+        private void textBoxSaveBackupMaxBackups_TextChanged(object sender, EventArgs e)
+        {
+            if (int.TryParse(textBoxSaveBackupMaxBackups.Text, out int maxBackups))
+            {
+                _saveBackup.MaxBackups = maxBackups;
+            }
+        }
+
+        private void SwitchFullScreen()
+        {
+            if (!_foregroundIsFangame)
+                return;
+
+            IntPtr foregroundWindow = _foregroundWindow;
+            if (foregroundWindow == IntPtr.Zero)
+                return;
+
+            var style = Windows.GetWindowLongPtr(foregroundWindow, Windows.GWL_STYLE);
+            if (0 == ((Windows.WindowStyles) style.ToInt64() & Windows.WindowStyles.WS_POPUP))
+            {
+                Windows.GetWindowRect(foregroundWindow, out _fullscreenSavedWindowedRect);
+                var monitor = Windows.MonitorFromWindow(foregroundWindow, Windows.MONITOR_DEFAULTTONEAREST);
+                Windows.MONITORINFOEX monitorInfo = new Windows.MONITORINFOEX
+                {
+                    cbSize = 72
+                };
+                Windows.GetMonitorInfo(monitor, monitorInfo);
+
+                var r = monitorInfo.rcMonitor;
+                _fullscreenSavedWindowedStyle = style;
+                Windows.SetWindowLongPtr(foregroundWindow, Windows.GWL_STYLE, new IntPtr((long)(Windows.WindowStyles.WS_POPUP)));
+                Windows.SetWindowPos(foregroundWindow, new IntPtr(-1), r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, (uint)Windows.SetWindowPosFlags.SWP_FRAMECHANGED);
+            }
+            else
+            {
+                Windows.SetWindowLongPtr(foregroundWindow, Windows.GWL_STYLE, _fullscreenSavedWindowedStyle);
+                // Windows.SetWindowLongPtr(foregroundWindow, Windows.GWL_EXSTYLE, WS_EX_ACCEPTFILES | WS_EX_APPWINDOW);
+                Windows.SetWindowPos(foregroundWindow, new IntPtr(-2), 0, 0, 0, 0, (uint) (Windows.SetWindowPosFlags.SWP_NOMOVE | Windows.SetWindowPosFlags.SWP_NOSIZE | Windows.SetWindowPosFlags.SWP_DRAWFRAME | Windows.SetWindowPosFlags.SWP_FRAMECHANGED));
+
+                var r = _fullscreenSavedWindowedRect;
+                Windows.SetWindowPos(foregroundWindow, IntPtr.Zero, r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, (uint) Windows.SetWindowPosFlags.SWP_FRAMECHANGED);
+            }
         }
     }
 }
