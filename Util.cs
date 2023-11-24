@@ -160,11 +160,14 @@ namespace FangameUtil
 
                     SafeInvoke(() => { textBoxName.Text = className; });
                     _foregroundWindow = foregroundWindow;
-                    _foregroundIsFangame = className == "TRunnerForm" || className == "YYGameMakerYY";
+                    _foregroundIsFangame = className == "TRunnerForm" || className == "YYGameMakerYY" || className == "UnityWndClass";
                 }
 
                 if (!_foregroundIsFangame)
+                {
+                    _counter = 0;
                     return;
+                }
 
                 var numPadHold = _numPadHold;
                 var autoFire = _autoFire;
@@ -179,15 +182,28 @@ namespace FangameUtil
 
                 if (autoFire is object)
                 {
-                    var mod = autoFire.hold + autoFire.release;
-                    var timer = count % mod;
-                    if (0 == timer)
+                    if (autoFire.keepHolding)
                     {
-                        _keyboard.Send(Keyboard.ScanCodeShort.KEY_Z);
+                        if (0 == (count % 3))
+                        {
+                            _keyboard.Send(Keyboard.ScanCodeShort.KEY_Z);
+                        }
                     }
-                    if (autoFire.hold == timer)
+                    else
                     {
-                        _keyboard.Release(Keyboard.ScanCodeShort.KEY_Z);
+                        var mod = autoFire.hold + autoFire.release;
+                        if (0 != mod)
+                        {
+                            var timer = count % mod;
+                            if (0 == timer)
+                            {
+                                _keyboard.Send(Keyboard.ScanCodeShort.KEY_Z);
+                            }
+                            if (autoFire.hold == timer)
+                            {
+                                _keyboard.Release(Keyboard.ScanCodeShort.KEY_Z);
+                            }
+                        }
                     }
                 }
             }
@@ -210,7 +226,7 @@ namespace FangameUtil
                 if (int.TryParse(textBoxAutoFireHold.Text   , out int hold)    && 0 != hold 
                  && int.TryParse(textBoxAutoFireRelease.Text, out int release) && 0 != release)
                 {
-                    autoFire = new AutoFire(hold, release);
+                    autoFire = new AutoFire(hold, release, checkBoxHold.Checked);
                 }
             }
 
@@ -292,7 +308,7 @@ namespace FangameUtil
                 return;
 
             var style = Windows.GetWindowLongPtr(foregroundWindow, Windows.GWL_STYLE);
-            if (0 == ((Windows.WindowStyles) style.ToInt64() & Windows.WindowStyles.WS_POPUP))
+            if (0 == ((Windows.WindowStyles) style.ToInt64() & Windows.WindowStyles.WS_THICKFRAME))
             {
                 Windows.GetWindowRect(foregroundWindow, out _fullscreenSavedWindowedRect);
                 var monitor = Windows.MonitorFromWindow(foregroundWindow, Windows.MONITOR_DEFAULTTONEAREST);
@@ -304,7 +320,8 @@ namespace FangameUtil
 
                 var r = monitorInfo.rcMonitor;
                 _fullscreenSavedWindowedStyle = style;
-                Windows.SetWindowLongPtr(foregroundWindow, Windows.GWL_STYLE, new IntPtr((long)(Windows.WindowStyles.WS_POPUP)));
+                long wantStyle = style.ToInt64() & ~(long)(Windows.WindowStyles.WS_CAPTION | Windows.WindowStyles.WS_THICKFRAME | Windows.WindowStyles.WS_MINIMIZEBOX | Windows.WindowStyles.WS_MAXIMIZEBOX | Windows.WindowStyles.WS_SYSMENU);
+                Windows.SetWindowLongPtr(foregroundWindow, Windows.GWL_STYLE, new IntPtr(wantStyle));
                 Windows.SetWindowPos(foregroundWindow, new IntPtr(-1), r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, (uint)Windows.SetWindowPosFlags.SWP_FRAMECHANGED);
             }
             else

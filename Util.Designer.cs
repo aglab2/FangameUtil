@@ -33,6 +33,7 @@
             this.textBoxSaveBackupDir = new System.Windows.Forms.TextBox();
             this.buttonSaveBackupOpen = new System.Windows.Forms.Button();
             this.textBoxSaveBackupMaxFileSize = new System.Windows.Forms.TextBox();
+            this.checkBoxHold = new System.Windows.Forms.CheckBox();
             this.groupBoxAutoFire.SuspendLayout();
             this.groupBoxSaveBackup.SuspendLayout();
             this.SuspendLayout();
@@ -67,6 +68,7 @@
             // 
             // groupBoxAutoFire
             // 
+            this.groupBoxAutoFire.Controls.Add(this.checkBoxHold);
             this.groupBoxAutoFire.Controls.Add(this.labelAutoFireToggle);
             this.groupBoxAutoFire.Controls.Add(this.comboBoxAutoFireSwitch);
             this.groupBoxAutoFire.Controls.Add(this.textBoxAutoFireRelease);
@@ -76,7 +78,7 @@
             this.groupBoxAutoFire.Controls.Add(this.checkBoxAutoFire);
             this.groupBoxAutoFire.Location = new System.Drawing.Point(15, 38);
             this.groupBoxAutoFire.Name = "groupBoxAutoFire";
-            this.groupBoxAutoFire.Size = new System.Drawing.Size(186, 78);
+            this.groupBoxAutoFire.Size = new System.Drawing.Size(186, 103);
             this.groupBoxAutoFire.TabIndex = 3;
             this.groupBoxAutoFire.TabStop = false;
             this.groupBoxAutoFire.Text = "Auto Fire";
@@ -130,7 +132,7 @@
             // 
             // textBoxAutoFireRelease
             // 
-            this.textBoxAutoFireRelease.Location = new System.Drawing.Point(133, 44);
+            this.textBoxAutoFireRelease.Location = new System.Drawing.Point(133, 68);
             this.textBoxAutoFireRelease.Name = "textBoxAutoFireRelease";
             this.textBoxAutoFireRelease.Size = new System.Drawing.Size(47, 20);
             this.textBoxAutoFireRelease.TabIndex = 6;
@@ -140,7 +142,7 @@
             // labelAutoFireRel
             // 
             this.labelAutoFireRel.AutoSize = true;
-            this.labelAutoFireRel.Location = new System.Drawing.Point(104, 47);
+            this.labelAutoFireRel.Location = new System.Drawing.Point(104, 71);
             this.labelAutoFireRel.Name = "labelAutoFireRel";
             this.labelAutoFireRel.Size = new System.Drawing.Size(23, 13);
             this.labelAutoFireRel.TabIndex = 5;
@@ -148,7 +150,7 @@
             // 
             // textBoxAutoFireHold
             // 
-            this.textBoxAutoFireHold.Location = new System.Drawing.Point(38, 44);
+            this.textBoxAutoFireHold.Location = new System.Drawing.Point(38, 68);
             this.textBoxAutoFireHold.Name = "textBoxAutoFireHold";
             this.textBoxAutoFireHold.Size = new System.Drawing.Size(47, 20);
             this.textBoxAutoFireHold.TabIndex = 4;
@@ -158,7 +160,7 @@
             // labelAutoFireHold
             // 
             this.labelAutoFireHold.AutoSize = true;
-            this.labelAutoFireHold.Location = new System.Drawing.Point(7, 47);
+            this.labelAutoFireHold.Location = new System.Drawing.Point(7, 71);
             this.labelAutoFireHold.Name = "labelAutoFireHold";
             this.labelAutoFireHold.Size = new System.Drawing.Size(29, 13);
             this.labelAutoFireHold.TabIndex = 3;
@@ -167,7 +169,7 @@
             // checkBoxHoldNumPad
             // 
             this.checkBoxHoldNumPad.AutoSize = true;
-            this.checkBoxHoldNumPad.Location = new System.Drawing.Point(15, 230);
+            this.checkBoxHoldNumPad.Location = new System.Drawing.Point(15, 254);
             this.checkBoxHoldNumPad.Name = "checkBoxHoldNumPad";
             this.checkBoxHoldNumPad.Size = new System.Drawing.Size(92, 17);
             this.checkBoxHoldNumPad.TabIndex = 7;
@@ -178,12 +180,13 @@
             // 
             // groupBoxSaveBackup
             // 
+            this.groupBoxSaveBackup.Controls.Add(this.textBoxSaveBackupMaxFileSize);
             this.groupBoxSaveBackup.Controls.Add(this.textBoxSaveBackupMaxBackups);
             this.groupBoxSaveBackup.Controls.Add(this.label1);
             this.groupBoxSaveBackup.Controls.Add(this.labelSaveBackupMaxSize);
             this.groupBoxSaveBackup.Controls.Add(this.textBoxSaveBackupDir);
             this.groupBoxSaveBackup.Controls.Add(this.buttonSaveBackupOpen);
-            this.groupBoxSaveBackup.Location = new System.Drawing.Point(15, 123);
+            this.groupBoxSaveBackup.Location = new System.Drawing.Point(15, 147);
             this.groupBoxSaveBackup.Name = "groupBoxSaveBackup";
             this.groupBoxSaveBackup.Size = new System.Drawing.Size(186, 101);
             this.groupBoxSaveBackup.TabIndex = 8;
@@ -237,19 +240,29 @@
             // 
             // textBoxSaveBackupMaxFileSize
             // 
-            this.textBoxSaveBackupMaxFileSize.Location = new System.Drawing.Point(142, 168);
+            this.textBoxSaveBackupMaxFileSize.Location = new System.Drawing.Point(127, 45);
             this.textBoxSaveBackupMaxFileSize.Name = "textBoxSaveBackupMaxFileSize";
             this.textBoxSaveBackupMaxFileSize.Size = new System.Drawing.Size(53, 20);
             this.textBoxSaveBackupMaxFileSize.TabIndex = 12;
             this.textBoxSaveBackupMaxFileSize.Text = "4096";
             this.textBoxSaveBackupMaxFileSize.TextChanged += new System.EventHandler(this.textBoxSaveBackupMaxFileSize_TextChanged);
             // 
+            // checkBoxHold
+            // 
+            this.checkBoxHold.AutoSize = true;
+            this.checkBoxHold.Location = new System.Drawing.Point(6, 42);
+            this.checkBoxHold.Name = "checkBoxHold";
+            this.checkBoxHold.Size = new System.Drawing.Size(48, 17);
+            this.checkBoxHold.TabIndex = 9;
+            this.checkBoxHold.Text = "Hold";
+            this.checkBoxHold.UseVisualStyleBackColor = true;
+            this.checkBoxHold.CheckedChanged += new System.EventHandler(this.OnAutoFireChange);
+            // 
             // Util
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(213, 278);
-            this.Controls.Add(this.textBoxSaveBackupMaxFileSize);
+            this.ClientSize = new System.Drawing.Size(213, 300);
             this.Controls.Add(this.groupBoxSaveBackup);
             this.Controls.Add(this.checkBoxHoldNumPad);
             this.Controls.Add(this.groupBoxAutoFire);
@@ -290,5 +303,6 @@
         private System.Windows.Forms.TextBox textBoxSaveBackupMaxFileSize;
         private System.Windows.Forms.TextBox textBoxSaveBackupMaxBackups;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.CheckBox checkBoxHold;
     }
 }

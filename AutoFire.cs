@@ -6,13 +6,15 @@ namespace FangameUtil
 {
     internal class AutoFire
     {
-        public AutoFire(int hold, int release)
+        public AutoFire(int hold, int release, bool keepHolding)
         {
             this.hold = hold;
             this.release = release;
+            this.keepHolding = keepHolding;
         }
 
         public readonly int hold;
         public readonly int release;
+        public readonly bool keepHolding;
     }
 }
